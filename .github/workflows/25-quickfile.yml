@@ -5,14 +5,12 @@
 # Author: wukongdaily
 # Blog: wkdaily.cpolar.cn
 # 适配仓库：2018011611/quickfile
+# 修复：uci 配置不存在删除报错
 #=================================================
 
-# 轻量好用的文件管理器(luci-app-quickfile)
+# 仅手动触发
 name: Make 25.12 quickfile run files
-
 on:
-  schedule:
-    - cron: "4 22 * * *"  # 北京时间早上 6 点 04
   workflow_dispatch:
 
 jobs:
@@ -29,7 +27,6 @@ jobs:
       - name: Fetch latest prerelease info
         id: fetch_release
         run: |
-          # ========== 仅修改此处仓库为你自己的 2018011611/quickfile ==========
           curl -s https://api.github.com/repos/2018011611/quickfile/releases \
             | jq 'map(select(.prerelease==false)) | sort_by(.published_at) | last' \
             > release.json
@@ -152,31 +149,35 @@ jobs:
           echo "VERSION=$version" >> $GITHUB_ENV
           echo "提取到版本号: $VERSION"
 
+      # ========== 已修复 uci 配置不存在报错的 install.sh ==========
       - name: Create install.sh scripts
         run: |
           cat <<EOF > x86/install.sh
-          #!/bin/sh
-          apk update
-          if [ $? -ne 0 ]; then
-              echo "update failed。"
-              exit 1
-          fi
-          apk add bash
-          apk add --allow-untrusted *.apk
-          # fix nginx
-          uci set nginx.global.uci_enable='true'
-          uci del nginx._lan
-          uci del nginx._redirect2ssl
-          uci add nginx server
-          uci rename nginx.@server[0]='_lan'
-          uci set nginx._lan.server_name='_lan'
-          uci add_list nginx._lan.listen='80 default_server'
-          uci add_list nginx._lan.listen='[::]:80 default_server'
-          uci add_list nginx._lan.include='conf.d/*.locations'
-          uci set nginx._lan.access_log='off; # logd openwrt'
-          uci commit nginx
-          service nginx restart
-          EOF
+#!/bin/sh
+# 屏蔽apk更新冗余警告
+apk update >/dev/null 2>&1
+if [ \$? -ne 0 ]; then
+    echo "update failed。"
+    exit 1
+fi
+apk add bash
+apk add --allow-untrusted *.apk
+
+# Nginx 配置修复：先判断存在再删除，避免报错
+uci set nginx.global.uci_enable='true'
+uci get nginx._lan >/dev/null 2>&1 && uci del nginx._lan
+uci get nginx._redirect2ssl >/dev/null 2>&1 && uci del nginx._redirect2ssl
+
+uci add nginx server
+uci rename nginx.@server[0]='_lan'
+uci set nginx._lan.server_name='_lan'
+uci add_list nginx._lan.listen='80 default_server'
+uci add_list nginx._lan.listen='[::]:80 default_server'
+uci add_list nginx._lan.include='conf.d/*.locations'
+uci set nginx._lan.access_log='off; # logd openwrt'
+uci commit nginx
+service nginx restart
+EOF
           chmod +x x86/install.sh
           cp x86/install.sh arm64/install.sh
           cp x86/install.sh arm64-generic/install.sh
@@ -202,7 +203,6 @@ jobs:
         run: |
           release_name=$(TZ="Asia/Shanghai" date +'%Y-%m-%d %H:%M Build')
           echo "RELEASE_NAME=$release_name" >> $GITHUB_ENV
-
 
       - name: Set tag name
         id: vars
