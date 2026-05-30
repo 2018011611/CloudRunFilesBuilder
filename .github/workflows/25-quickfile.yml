@@ -4,9 +4,10 @@
 # Lisence: MIT
 # Author: wukongdaily
 # Blog: wkdaily.cpolar.cn
+# 适配仓库：2018011611/quickfile
 #=================================================
 
-# 轻量好用的文件管理器(luci-app-quickfile by sbwml)
+# 轻量好用的文件管理器(luci-app-quickfile)
 name: Make 25.12 quickfile run files
 
 on:
@@ -28,12 +29,12 @@ jobs:
       - name: Fetch latest prerelease info
         id: fetch_release
         run: |
-          curl -s https://api.github.com/repos/wkccd/quickfile/releases \
+          # ========== 仅修改此处仓库为你自己的 2018011611/quickfile ==========
+          curl -s https://api.github.com/repos/2018011611/quickfile/releases \
             | jq 'map(select(.prerelease==false)) | sort_by(.published_at) | last' \
             > release.json
       
       - name: Parse asset download URLs
-        id: parse_assets
         shell: bash
         run: |
           set -e
@@ -218,7 +219,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
              <p align="left">
-              <img src="https://img.shields.io/github/downloads/wkccd/CloudRunFilesBuilder/${{ env.tag_name }}/total?style=for-the-badge&label=%E4%BB%8A%E6%97%A5%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0&labelColor=blue&color=black"/>
+              <img src="https://img.shields.io/github/downloads/2018011611/quickfile/${{ env.tag_name }}/total?style=for-the-badge&label=%E4%BB%8A%E6%97%A5%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0&labelColor=blue&color=black"/>
               <a href="https://wkdaily.cpolar.cn/archives/1">
                 <img src="https://img.shields.io/badge/可套用国内加速站下载-FC7C0D?logo=github&logoColor=fff&labelColor=000&style=for-the-badge"/>
               </a>
