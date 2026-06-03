@@ -10,8 +10,8 @@
 name: Make 25.12 quickfile run files
 
 on:
-  schedule:
-    - cron: "4 22 * * *"  # 北京时间早上 6 点 04
+#  schedule:
+#   - cron: "4 22 * * *"  # 北京时间早上 6 点 04
   workflow_dispatch:
 
 jobs:
