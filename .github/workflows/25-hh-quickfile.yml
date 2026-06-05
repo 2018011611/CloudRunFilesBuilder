@@ -38,125 +38,48 @@ jobs:
         run: |
           set -e
 
-          echo "Parsing release assets..."
+          echo "开始精准解析 Release 资产文件..."
 
-          # =========================================================
-          # X86_64 (适配 2018011611/quickfile 仓库的下划线命名与 _all 后缀)
-          # =========================================================
-          X86_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("quickfile[_-].*x86_64\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
+          # 精准匹配当前的 3 个文件
+          CORE_URL=$(jq -r '[.assets[] | select(.name | test("^quickfile-[0-9].*\\.apk$")) | .browser_download_url][0] | select(. != null)' release.json)
+          LUCI_URL=$(jq -r '[.assets[] | select(.name | test("^luci-app-quickfile-.*\\.apk$")) | .browser_download_url][0] | select(. != null)' release.json)
+          I18N_URL=$(jq -r '[.assets[] | select(.name | test("^luci-i18n-quickfile-zh-cn-.*\\.apk$")) | .browser_download_url][0] | select(. != null)' release.json)
 
-          LUCI_MAIN_X86_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-app-quickfile[_-].*(x86_64|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
+          echo "DEBUG CORE_URL=$CORE_URL"
+          echo "DEBUG LUCI_URL=$LUCI_URL"
+          echo "DEBUG I18N_URL=$I18N_URL"
 
-          LUCI_I18N_X86_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(x86_64|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
+          # 断言守卫：确保三个文件全部找齐
+          if [ -z "$CORE_URL" ] || [ -z "$LUCI_URL" ] || [ -z "$I18N_URL" ]; then
+            echo "======================================================================="
+            echo "❌ 错误：未能完整匹配到最新的 3 个 APK 文件，请检查 Release 资产名称！"
+            echo "======================================================================="
+            exit 1
+          fi
 
-          # =========================================================
-          # ARM (aarch64_cortex-a53)
-          # =========================================================
-          ARM_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("quickfile[_-].*aarch64_cortex-a53\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          LUCI_MAIN_ARM_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-app-quickfile[_-].*(aarch64_cortex-a53|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          LUCI_I18N_ARM_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(aarch64_cortex-a53|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          # =========================================================
-          # ARM64 GENERIC
-          # =========================================================
-          ARM64_GENERIC_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("quickfile[_-].*aarch64_generic\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          LUCI_MAIN_ARM64_GENERIC_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-app-quickfile[_-].*(aarch64_generic|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          LUCI_I18N_ARM64_GENERIC_URL=$(jq -r '
-            [.assets[]
-              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(aarch64_generic|all)\\.apk$"))
-              | .browser_download_url][0]
-          ' release.json)
-
-          echo "DEBUG X86_URL=$X86_URL"
-          echo "DEBUG LUCI_MAIN_X86_URL=$LUCI_MAIN_X86_URL"
-          echo "DEBUG LUCI_I18N_X86_URL=$LUCI_I18N_X86_URL"
-          echo "DEBUG ARM_URL=$ARM_URL"
-          echo "DEBUG LUCI_MAIN_ARM_URL=$LUCI_MAIN_ARM_URL"
-          echo "DEBUG LUCI_I18N_ARM_URL=$LUCI_I18N_ARM_URL"
-          echo "DEBUG ARM64_GENERIC_URL=$ARM64_GENERIC_URL"
-          echo "DEBUG LUCI_MAIN_ARM64_GENERIC_URL=$LUCI_MAIN_ARM64_GENERIC_URL"
-          echo "DEBUG LUCI_I18N_ARM64_GENERIC_URL=$LUCI_I18N_ARM64_GENERIC_URL"
-
-          # =========================
-          # 写入 GITHUB_ENV（安全版）
-          # =========================
-          [ -n "$X86_URL" ] && echo "X86_URL=$X86_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_MAIN_X86_URL" ] && echo "LUCI_MAIN_X86_URL=$LUCI_MAIN_X86_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_I18N_X86_URL" ] && echo "LUCI_I18N_X86_URL=$LUCI_I18N_X86_URL" >> $GITHUB_ENV
-
-          [ -n "$ARM_URL" ] && echo "ARM_URL=$ARM_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_MAIN_ARM_URL" ] && echo "LUCI_MAIN_ARM_URL=$LUCI_MAIN_ARM_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_I18N_ARM_URL" ] && echo "LUCI_I18N_ARM_URL=$LUCI_I18N_ARM_URL" >> $GITHUB_ENV
-
-          [ -n "$ARM64_GENERIC_URL" ] && echo "ARM64_GENERIC_URL=$ARM64_GENERIC_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_MAIN_ARM64_GENERIC_URL" ] && echo "LUCI_MAIN_ARM64_GENERIC_URL=$LUCI_MAIN_ARM64_GENERIC_URL" >> $GITHUB_ENV
-          [ -n "$LUCI_I18N_ARM64_GENERIC_URL" ] && echo "LUCI_I18N_ARM64_GENERIC_URL=$LUCI_I18N_ARM64_GENERIC_URL" >> $GITHUB_ENV
+          # 写入环境变量
+          echo "CORE_URL=$CORE_URL" >> $GITHUB_ENV
+          echo "LUCI_URL=$LUCI_URL" >> $GITHUB_ENV
+          echo "I18N_URL=$I18N_URL" >> $GITHUB_ENV
        
       - name: Download apk files
         run: |
-          mkdir -p x86 arm64 arm64-generic
-          wget "$X86_URL" -P x86/
-          wget "$LUCI_MAIN_X86_URL" -P x86/
-          wget "$LUCI_I18N_X86_URL" -P x86/
-           
-          wget "$ARM_URL" -P arm64/
-          wget "$LUCI_MAIN_ARM_URL" -P arm64/
-          wget "$LUCI_I18N_ARM_URL" -P arm64/
+          mkdir -p quickfile_dist
+          wget "$CORE_URL" -P quickfile_dist/
+          wget "$LUCI_URL" -P quickfile_dist/
+          wget "$I18N_URL" -P quickfile_dist/
 
-          wget "$ARM64_GENERIC_URL" -P arm64-generic/
-          wget "$LUCI_MAIN_ARM64_GENERIC_URL" -P arm64-generic/
-          wget "$LUCI_I18N_ARM64_GENERIC_URL" -P arm64-generic/
-
-          # 安全提取版本号（同时兼容下划线和中划线命名）
-          file=$(basename "$X86_URL")
-          if [[ "$file" == *"_"* ]]; then
-            version=$(echo "$file" | cut -d'_' -f2)
-          else
-            version=$(echo "$file" | cut -d'-' -f2)
-          fi
+          # 从 quickfile-1.0.24-r1.apk 中提取版本号 1.0.24-r1
+          file=$(basename "$CORE_URL")
+          version="${file#quickfile-}"
+          version="${version%.apk}"
 
           echo "VERSION=$version" >> $GITHUB_ENV
-          echo "提取到版本号: $version"
+          echo "成功提取到版本号: $version"
 
-      - name: Create install.sh scripts
+      - name: Create install.sh script
         run: |
-          cat <<EOF > x86/install.sh
+          cat <<EOF > quickfile_dist/install.sh
           #!/bin/sh
           apk update
           if [ \$? -ne 0 ]; then
@@ -179,26 +102,20 @@ jobs:
           uci commit nginx
           service nginx restart
           EOF
-          chmod +x x86/install.sh
-          cp x86/install.sh arm64/install.sh
-          cp x86/install.sh arm64-generic/install.sh
+          chmod +x quickfile_dist/install.sh
 
-      - name: Move directories to makeself
+      - name: Move directory to makeself
         run: |
-          mv x86 makeself/
-          mv arm64 makeself/
-          mv arm64-generic makeself/
+          mv quickfile_dist makeself/
 
-      - name: Create self-extracting packages
+      - name: Create self-extracting package
         run: |
           cd makeself
-          ./makeself.sh x86/ 25_quickfile_${VERSION}_x86_64.run "by github action" ./install.sh
-          ./makeself.sh arm64/ 25_quickfile_${VERSION}_aarch64_a53.run "by github action" ./install.sh
-          ./makeself.sh arm64-generic/ 25_quickfile_${VERSION}_aarch64_generic.run "by github action" ./install.sh
+          ./makeself.sh quickfile_dist/ 25_quickfile_${VERSION}.run "by github action" ./install.sh
 
       - name: Check file sizes
         run: |
-          ls -lh makeself/25_quickfile_*.run
+          ls -lh makeself/*.run
 
       - name: Preparing release name
         run: |
