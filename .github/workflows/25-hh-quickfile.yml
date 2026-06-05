@@ -11,16 +11,16 @@ name: Make 25.12 quickfile run files
 
 on:
 #  schedule:
-#   - cron: "4 22 * * *"  # 北京时间早上 6 点 04
+#    - cron: "4 22 * * *"  # 北京时间早上 6 点 04
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Clone makeself repository
         run: git clone https://github.com/megastep/makeself.git
@@ -31,7 +31,7 @@ jobs:
           curl -s https://api.github.com/repos/2018011611/quickfile/releases \
             | jq 'map(select(.prerelease==false)) | sort_by(.published_at) | last' \
             > release.json
-      
+       
       - name: Parse asset download URLs
         id: parse_assets
         shell: bash
@@ -40,67 +40,67 @@ jobs:
 
           echo "Parsing release assets..."
 
-          # =========================
-          # X86
-          # =========================
+          # =========================================================
+          # X86_64 (适配 2018011611/quickfile 仓库的下划线命名与 _all 后缀)
+          # =========================================================
           X86_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("^quickfile_.*_x86_64\\.apk$"))
-             | .browser_download_url][0]
+              | select(.name | test("quickfile[_-].*x86_64\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_MAIN_X86_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-app-quickfile_.*_x86_64\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-app-quickfile[_-].*(x86_64|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_I18N_X86_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-i18n-quickfile-zh-cn_.*_x86_64\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(x86_64|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
-          # =========================
+          # =========================================================
           # ARM (aarch64_cortex-a53)
-          # =========================
+          # =========================================================
           ARM_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("^quickfile_.*_aarch64_cortex-a53\\.apk$"))
-             | .browser_download_url][0]
+              | select(.name | test("quickfile[_-].*aarch64_cortex-a53\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_MAIN_ARM_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-app-quickfile_.*_aarch64_cortex-a53\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-app-quickfile[_-].*(aarch64_cortex-a53|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_I18N_ARM_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-i18n-quickfile-zh-cn_.*_aarch64_cortex-a53\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(aarch64_cortex-a53|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
-          # =========================
-          # ARM64 GENERIC (新增)
-          # =========================
+          # =========================================================
+          # ARM64 GENERIC
+          # =========================================================
           ARM64_GENERIC_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("^quickfile_.*_aarch64_generic\\.apk$"))
-             | .browser_download_url][0]
+              | select(.name | test("quickfile[_-].*aarch64_generic\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_MAIN_ARM64_GENERIC_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-app-quickfile_.*_aarch64_generic\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-app-quickfile[_-].*(aarch64_generic|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           LUCI_I18N_ARM64_GENERIC_URL=$(jq -r '
             [.assets[]
-             | select(.name | test("luci-i18n-quickfile-zh-cn_.*_aarch64_generic\\.apk"))
-             | .browser_download_url][0]
+              | select(.name | test("luci-i18n-quickfile-zh-cn[_-].*(aarch64_generic|all)\\.apk$"))
+              | .browser_download_url][0]
           ' release.json)
 
           echo "DEBUG X86_URL=$X86_URL"
@@ -127,14 +127,14 @@ jobs:
           [ -n "$ARM64_GENERIC_URL" ] && echo "ARM64_GENERIC_URL=$ARM64_GENERIC_URL" >> $GITHUB_ENV
           [ -n "$LUCI_MAIN_ARM64_GENERIC_URL" ] && echo "LUCI_MAIN_ARM64_GENERIC_URL=$LUCI_MAIN_ARM64_GENERIC_URL" >> $GITHUB_ENV
           [ -n "$LUCI_I18N_ARM64_GENERIC_URL" ] && echo "LUCI_I18N_ARM64_GENERIC_URL=$LUCI_I18N_ARM64_GENERIC_URL" >> $GITHUB_ENV
-      
+       
       - name: Download apk files
         run: |
           mkdir -p x86 arm64 arm64-generic
           wget "$X86_URL" -P x86/
           wget "$LUCI_MAIN_X86_URL" -P x86/
           wget "$LUCI_I18N_X86_URL" -P x86/
-          
+           
           wget "$ARM_URL" -P arm64/
           wget "$LUCI_MAIN_ARM_URL" -P arm64/
           wget "$LUCI_I18N_ARM_URL" -P arm64/
@@ -143,28 +143,32 @@ jobs:
           wget "$LUCI_MAIN_ARM64_GENERIC_URL" -P arm64-generic/
           wget "$LUCI_I18N_ARM64_GENERIC_URL" -P arm64-generic/
 
-          # 从 x86 的 quickfile 文件名提取日期版本号
+          # 安全提取版本号（同时兼容下划线和中划线命名）
           file=$(basename "$X86_URL")
-          version="${file#quickfile_}"
-          version="${version%%_*}"
+          if [[ "$file" == *"_"* ]]; then
+            version=$(echo "$file" | cut -d'_' -f2)
+          else
+            version=$(echo "$file" | cut -d'-' -f2)
+          fi
 
           echo "VERSION=$version" >> $GITHUB_ENV
-          echo "提取到版本号: $VERSION"
+          echo "提取到版本号: $version"
 
       - name: Create install.sh scripts
         run: |
           cat <<EOF > x86/install.sh
           #!/bin/sh
-          # 修复1：移除强制apk update，解决源报错
-          apk add bash --allow-untrusted *.apk
-          # 修复2：安装后初始化quickfile配置，彻底消除uci:Entry not found
-          [ ! -f /etc/config/quickfile ] && touch /etc/config/quickfile
-          uci revert quickfile
-          uci commit quickfile
-          # fix nginx 原有逻辑保留不变
+          apk update
+          if [ \$? -ne 0 ]; then
+              echo "update failed。"
+              exit 1
+          fi
+          apk add bash
+          apk add --allow-untrusted *.apk
+          # fix nginx
           uci set nginx.global.uci_enable='true'
-          uci del nginx._lan 2>/dev/null
-          uci del nginx._redirect2ssl 2>/dev/null
+          uci del nginx._lan
+          uci del nginx._redirect2ssl
           uci add nginx server
           uci rename nginx.@server[0]='_lan'
           uci set nginx._lan.server_name='_lan'
@@ -173,7 +177,7 @@ jobs:
           uci add_list nginx._lan.include='conf.d/*.locations'
           uci set nginx._lan.access_log='off; # logd openwrt'
           uci commit nginx
-          service nginx restart >/dev/null 2>&1
+          service nginx restart
           EOF
           chmod +x x86/install.sh
           cp x86/install.sh arm64/install.sh
@@ -201,15 +205,14 @@ jobs:
           release_name=$(TZ="Asia/Shanghai" date +'%Y-%m-%d %H:%M Build')
           echo "RELEASE_NAME=$release_name" >> $GITHUB_ENV
 
-
       - name: Set tag name
         id: vars
         run: |
           TODAY=$(date -u -d '+8 hour' +'%Y-%m-%d')
           echo "tag_name=$TODAY" >> $GITHUB_ENV
-          
+           
       - name: Upload run files as release assets
-        uses: softprops/action-gh-release@v2.1.0
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.tag_name }}
           name: "Daily Build - ${{ env.tag_name }}"
